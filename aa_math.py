@@ -1,5 +1,5 @@
 """
-Sheet Ideas:
+TODO Sheet Ideas:
     a line intersecting parallel lines to table of polygon angles
     functions, slopes to equation of line, present higher order curves and ask for slope(x): make a table, graph.
     fast math tables and proofs
@@ -9,6 +9,7 @@ Sheet Ideas:
     measures: how large the earth, how far the star, how tall the tree
 """
 
+import random
 import math
 import os
 from reportlab.pdfbase.pdfmetrics import stringWidth
@@ -18,7 +19,12 @@ from reportlab.pdfgen import canvas
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet,ParagraphStyle
-from reportlab.lib.units import inch
+from reportlab.lib.units import inch,cm
+try:
+    import bases
+    Bases = bases.Bases()
+except:
+    Bases = None #
 
 
 GRID_COLOR = colors.Color(21/255., 67/255., 234/255.,0.03)
@@ -69,88 +75,72 @@ log
 
 
 class Sheet(object):
-    def __init__(self,flavor='graph_paper',**kwargs):
-        """ Init a Canvas, set defaults and dispatch."""
+    def __init__(self,fout='aa_math.pdf',**kwargs):
+        """ Init a Canvas and set defaults.
+            Add content to instance and then save."""
         self.margin = kwargs.get('margin',50)
         self.verbose = kwargs.get('verbose',0) # verbose is from 0-9 with 9 most solved
-        fout=kwargs.get('fout',flavor)
-        if self.verbose: fout += '_k%s'%self.verbose
+        # kind of patched in here for windows systems. needs fix.
         if DOUT:   fout = os.path.join(DOUT,'%s'%(fout,))
-        fout += '.pdf'
+        if not fout.lower().endswith('.pdf'): fout += ".pdf"
         self.can = canvas.Canvas(fout, pagesize=letter)
         self.width, self.height = [x-2*self.margin for x in letter]
-        self.x_center = self.margin + self.width/2
-        self.x, self.y = self.margin, self.height + self.margin
+        if self.margin:
+            self.can.translate(self.margin,-self.margin) # make room at the top
         self.set_style(**kwargs)
-        self.dispatch(flavor,**kwargs)
+
+    def save(self):
         self.can.save()
 
     def set_style(self,**kwargs):
         self.header_font, self.header_size = "Helvetica-Bold", 30
         self.normal_font, self.normal_size = "Helvetica", 10
 
-    def dispatch(self,flavor='graph_paper',**kwargs):
-        if flavor == 'graph_paper':
-            return self.graph_paper(**kwargs)
-        if flavor == 'times_table':
-            return self.times_table(**kwargs)
-
-
     def graph_paper(self,**kwargs):
-        """TODO: Add scales for levels of verbose"""
-        num_lines = kwargs.get('num_lines',50)
-        # make a stroke every 10
-        self.can.setStrokeColor( colors.Color(21/255., 67/255., 234/255.,0.08))
-        #self.can.setStrokeColor( colors.Color(1, 0, 0, 1) )
-        xlist = [self.margin+x*(self.width/num_lines) for x in range(0,num_lines+1,10)]
-        ylist = [self.margin+x*(self.width/num_lines) for x in range(0,1+int(num_lines*(self.height/self.width)),10)]
-        self.can.grid(xlist, ylist)
-        # make a stroke every 5
-        self.can.setStrokeColor( colors.Color(21/255., 67/255., 234/255.,0.04))
-        xlist = [self.margin+x*(self.width/num_lines) for x in range(0,num_lines+1,5)]
-        ylist = [self.margin+x*(self.width/num_lines) for x in range(0,1+int(num_lines*(self.height/self.width)),5)]
-        self.can.grid(xlist, ylist)
-        # make a stroke every 1
-        self.can.setStrokeColor( colors.Color(21/255., 67/255., 234/255.,0.1))
-        xlist = [self.margin+x*(self.width/num_lines) for x in range(0,num_lines+1)]
-        ylist = [self.margin+x*(self.width/num_lines) for x in range(1+int(num_lines*(self.height/self.width)))]
+        """put graph paper at current location
+           TODO: Add base and stroke options scales """
+        lines = kwargs.get('lines',50)
+        color = kwargs.get('color',colors.Color(21/255., 67/255., 234/255.,0.08))
+        width = kwargs.get('width',self.width)
+        height = kwargs.get('height',self.height)
+        self.can.setStrokeColor(color)
+        xlist = [x*(width/lines) for x in range(0,lines+1)]
+        ylist = [x*(width/lines) for x in range(0,1+int(lines*height/width))]
         self.can.grid(xlist, ylist)
 
 
     def times_table(self,**kwargs):
         # layout a times table with options for prime grouping of dots, prime factors, ...
         size = kwargs.get('size',10)
-        x, y = self.x, self.y
+        base = kwargs.get('base',10)
+        width = kwargs.get('width',self.width)
+        height = kwargs.get('height',self.height)
+        show_products = kwargs.get('show_products',1) # set to between 0-1 for stroke alpha in the numbers
+        x = 0; y = height-self.header_size
         self.can.setFont(self.header_font,self.header_size)
-        self.can.drawCentredString(self.x_center, self.y, "Ye Olde Times Table")
-        if 0<self.verbose: # include all prompts for any verbose level
-            y -= self.header_size-10
+        self.can.drawCentredString(width/2, y, "Ye Olde Times Table")
+        y -= self.header_size-10
+        if self.verbose:
             self.can.setFont(self.header_font, self.header_size-10)
-            self.can.drawCentredString(self.x_center, y, "and prime factorization")
-            y -= self.header_size
+            self.can.drawCentredString(width/2, y, "and prime factorization")
+            y -= self.header_size-20
             self.can.setFont(self.normal_font, self.normal_size)
             dyl = self.normal_size + 2
-            self.can.drawString(self.margin,y,"Look for patterns.")
-            y-=dyl
-            self.can.drawString(self.margin,y,"Circle all of the prime numbers.")
-            y-=dyl
-            self.can.drawString(self.margin,y,"Play 'cut out a prime factor and write it down'. ")
-            y-=dyl
-            self.can.drawString(self.margin,y," As shown: Cut any of the 12 dots in half to get 2 copies of a 2 by 3 prime grid. And behold: 12 is prime factored as 2x2x3")
-            y-=dyl
-            self.can.drawString(self.margin,y," Also shown: The 16 dot square takes 2 cuts to get 2x2 copies of a 2 by 2 grid. And behold: 16 is prime factored as 2x2x2x2.")
-            y-=dyl
-            self.can.drawString(self.margin,y,"Shade in all of the numbers that are the products of 2 primes as shown for 15.")
-            y-=dyl
-            self.can.drawString(self.margin,y,"How interesting! The perfect squares seem to be separated by the odd integers!")
-            y-=dyl
-            self.can.drawString(self.margin,y,"Write each compound number as the product of primes.")
-
-        else:
-            y -= self.margin
+            prompts = ["Look for patterns.",
+                       "Circle all of the prime numbers.",
+                       "Shade in all of the numbers that are the product of 2 primes.",
+                       "Play 'cut out a prime factor.' ",
+                       "How interesting! The perfect squares seem to be separated by the odd integers.",
+                       "Write each number as the product of primes."]
+            for prompt in prompts:
+                y-=dyl
+                self.can.drawString(x+width/10,y,prompt)
         font_size = 240/size
+        font_size = max(12,font_size*base/10)
         self.can.setFont(self.normal_font, font_size)
-        dx = dy = self.width/(size-1)
+        self.can.setFillColor( colors.Color(0,0,0,show_products))
+        dx = dy = width/(size+1)
+        x += dx
         ylist = [y-dy/2+font_size/2-2]
         for c in range(1,size+1):
             cy = y-c*dy
@@ -161,26 +151,183 @@ class Sheet(object):
                     self.can.saveState()
                     self.can.translate(cx-dx/2+3,cy+dy/2+font_size/2-3)
                     row_cuts = col_cuts = box = factors = 0
-                    #if master and r in [2,3,5,7] and c in [2,3,5,7]:  box=1
-                    if self.verbose and r*c in [15]:  box=1
-                    else:
-                        box = 0
-                    if self.verbose and  ((r == 6 and c == 2) or (r==4 and c==3) or (r==c==4)):  col_cuts=1
-                    else: col_cuts = 0
-                    if self.verbose and  ((r == 2 and c == 6) or (r==3 and c==4) or (r==c==4)):  row_cuts=1
-                    else: row_cuts = 0
-                    if self.verbose and  r*c==40:  factors=1
-                    if self.verbose > 5: factors = 1
+                    if random.randint(1,9)<=self.verbose:  box=1
+                    else:  box = 0
+                    if random.randint(1,9)<=self.verbose:  row_cuts=col_cuts=1
+                    else:  row_cuts=col_cuts = 0
+                    if random.randint(1,9)<=self.verbose:  factors=1
                     else: factors = 0
                     dot_grid(self.can,r,c,size,size,dx-6,dy-6,
                              col_cuts=col_cuts,row_cuts=row_cuts,box=box,factors=factors)
                     self.can.restoreState()
-                    self.can.drawCentredString(cx,cy,"%d"%(c*r))
+                    if show_products: # or (1 in [c,r]):
+                        p = c*r
+                        if base!=10:
+                            if not Bases:
+                                raise Exception("`pip install bases.py` to use a base other than 10.")
+                            p = Bases.toBase(p,base)
+                        self.can.drawCentredString(cx,cy,"%s"%(p,))
                     xlist.append(cx+dx/2)
                 ylist.append(cy-dy/2+font_size/2-2)
 
-        self.can.setStrokeColor( colors.Color(21/255., 21/255., 21/255.,0.1))
+        self.can.setStrokeColor( colors.Color(21/255., 21/255., 21/255.,0.05))
         self.can.grid(xlist, ylist)
+
+############ utilities ###################
+
+
+def pythagoran(can,
+               a=3,
+               b=4,
+               width=None,
+               height=None,
+):
+    """A solved 3-4-5 followed by a pair of blank 17x17 grids.
+"""
+    margin=40
+    can = canvas.Canvas('/home/jameyer/Write/Math/pythagoras.pdf', pagesize=letter)
+    width,height = [x-2*margin for x in letter]
+    can.setFont("Times-Roman", 30)
+    y = height+margin
+    x = margin
+    can.drawCentredString(width/2,y,"Pythagorean Theorem")
+    # define the color of the triangles from upper left clockwise
+    ct1 = colors.Color(252/255., 108/255., 13/255.,1)
+    ct2 = colors.Color(198/255., 252/255., 13/255.,1)
+    ct3 = colors.Color(0/255., 174/255., 239/255.,1)
+    ct4 = colors.Color(222/255., 61/255., 252/255.,1)
+    y -= 40
+    spacing = width/20
+    sqwidth = (width-spacing)/2 # the width of a square, 2 across
+    s = 7
+
+    # start in upper left with a 3-4-5 proof
+    # first column divides up in 3 and 4 squares
+    can.setStrokeColor( colors.Color(21/255., 21/255., 21/255.,1))
+    #can.setFillColor(colors.Color(21/255., 67/255., 234/255.,0.01))
+    can.rect(x, y-sqwidth,sqwidth,sqwidth,stroke=1,fill=0) # outline the square
+    # tone down the text
+    can.setStrokeColor( colors.Color(21/255., 21/255., 21/255.,0.1))
+    can.setFillColor(colors.Color(21/255., 67/255., 234/255.,0.1))
+    xlist = [x+i*(sqwidth/s) for i in range(s+1)]
+    ylist = [y-i*(sqwidth/s) for i in range(s+1)]
+    can.grid(xlist, ylist)
+    can.setStrokeColor( colors.Color(21/255., 21/255., 21/255.,1))
+    can.line(x+3*(sqwidth/s),y,x+3*(sqwidth/s),y-7*sqwidth/s)
+    can.line(x,y-3*(sqwidth/s),x+7*sqwidth/s,y-3*(sqwidth/s))
+
+    # color triangles
+    p = can.beginPath()
+    p.moveTo(x+0*(sqwidth/s),y-7*(sqwidth/s))
+    p.lineTo(x+0*(sqwidth/s),y-3*(sqwidth/s))
+    p.lineTo(x+3*(sqwidth/s),y-3*(sqwidth/s))
+    p.lineTo(x+0*(sqwidth/s),y-7*(sqwidth/s))
+    can.setFillColor(ct1)
+    can.drawPath(p,fill=1,stroke=0)
+
+    p = can.beginPath()
+    p.moveTo(x+3*(sqwidth/s),y)
+    p.lineTo(x+7*(sqwidth/s),y)
+    p.lineTo(x+7*(sqwidth/s),y-3*(sqwidth/s))
+    p.lineTo(x+3*(sqwidth/s),y)
+    can.setFillColor(ct2)
+    can.drawPath(p,fill=1,stroke=0)
+
+    p = can.beginPath()
+    p.moveTo(x+0*(sqwidth/s),y-7*(sqwidth/s))
+    p.lineTo(x+3*(sqwidth/s),y-3*(sqwidth/s))
+    p.lineTo(x+3*(sqwidth/s),y-7*(sqwidth/s))
+    p.lineTo(x+0*(sqwidth/s),y-7*(sqwidth/s))
+    can.setFillColor(ct3)
+    can.drawPath(p,fill=1,stroke=0)
+
+    p = can.beginPath()
+    p.moveTo(x+3*(sqwidth/s),y)
+    p.lineTo(x+7*(sqwidth/s),y-3*(sqwidth/s))
+    p.lineTo(x+3*(sqwidth/s),y-3*(sqwidth/s))
+    p.lineTo(x+3*(sqwidth/s),y)
+    can.setFillColor(ct4)
+    can.drawPath(p,fill=1,stroke=0)
+
+    can.setFillColor(colors.Color(21/255., 67/255., 234/255.,0.1))
+    n = 0
+    for j in range(3):
+        for i in range(3):
+            n += 1
+            can.drawCentredString(x+(i+0.5)*(sqwidth/s),y-(j+0.75)*(sqwidth/s), "%d"%n)
+    n = 0
+    for j in range(3,7):
+        for i in range(3,7):
+            n += 1
+            can.drawCentredString(x+(i+0.5)*(sqwidth/s),y-(j+0.75)*(sqwidth/s), "%d"%n)
+    # second column
+    x += sqwidth + spacing
+    can.rect(x, y-sqwidth,sqwidth,sqwidth,stroke=1,fill=0) # outline the square
+    can.setStrokeColor( colors.Color(21/255., 21/255., 21/255.,0.1))
+    xlist = [x+i*(sqwidth/s) for i in range(s+1)]
+    ylist = [y-i*(sqwidth/s) for i in range(s+1)]
+    can.grid(xlist, ylist)
+    can.setStrokeColor( colors.Color(21/255., 21/255., 21/255.,1))
+    can.line(x+3*(sqwidth/s),y,x+7*(sqwidth/s),y-3*sqwidth/s)
+    can.line(x+7*(sqwidth/s),y-3*sqwidth/s,x+4*(sqwidth/s),y-7*sqwidth/s)
+    can.line(x+4*(sqwidth/s),y-7*sqwidth/s,x+0*(sqwidth/s),y-4*sqwidth/s)
+    can.line(x+0*(sqwidth/s),y-4*sqwidth/s,x+3*(sqwidth/s),y)
+    # color triangles
+    p = can.beginPath()
+    p.moveTo(x,y)
+    p.lineTo(x+3*(sqwidth/s),y)
+    p.lineTo(x,y-4*(sqwidth/s))
+    p.lineTo(x,y)
+    can.setFillColor(ct1)
+    can.drawPath(p,fill=1)
+
+    p = can.beginPath()
+    p.moveTo(x+3*(sqwidth/s),y)
+    p.lineTo(x+7*(sqwidth/s),y)
+    p.lineTo(x+7*(sqwidth/s),y-3*(sqwidth/s))
+    p.lineTo(x+3*(sqwidth/s),y)
+    can.setFillColor(ct2)
+    can.drawPath(p,fill=1)
+
+    p = can.beginPath()
+    p.moveTo(x+7*(sqwidth/s),y-3*(sqwidth/s))
+    p.lineTo(x+7*(sqwidth/s),y-7*(sqwidth/s))
+    p.lineTo(x+4*(sqwidth/s),y-7*(sqwidth/s))
+    p.lineTo(x+7*(sqwidth/s),y-3*(sqwidth/s))
+    can.setFillColor(ct3)
+    can.drawPath(p,fill=1)
+
+    p = can.beginPath()
+    p.moveTo(x+4*(sqwidth/s),y-7*(sqwidth/s))
+    p.lineTo(x+0*(sqwidth/s),y-7*(sqwidth/s))
+    p.lineTo(x+0*(sqwidth/s),y-4*(sqwidth/s))
+    p.lineTo(x+4*(sqwidth/s),y-7*(sqwidth/s))
+    can.setFillColor(ct4)
+    can.drawPath(p,fill=1)
+
+    can.saveState()
+    can.translate(x+3*(sqwidth/s),y)
+    can.rotate(-36.86989827)
+    p = can.beginPath()
+    p.moveTo(0,0)
+    p.lineTo(5*(sqwidth/s),0)
+    p.lineTo(5*(sqwidth/s),-5*(sqwidth/s))
+    p.lineTo(0,-5*(sqwidth/s))
+    p.lineTo(0,0)
+    can.setStrokeColor( colors.Color(20/255., 21/255., 21/255.,0.1))
+    can.setFillColor(colors.Color(255/255., 255/255., 255/255.,1))
+    can.drawPath(p,fill=1)
+
+    xlist = [i*(sqwidth/s) for i in range(6)]
+    ylist = [-i*(sqwidth/s) for i in range(6)]
+    can.grid(xlist, ylist)
+    can.setFillColor(colors.Color(21/255., 67/255., 234/255.,0.1))
+    n = 0
+    for j in range(5):
+        for i in range(5):
+            n += 1
+            can.drawCentredString(x*0+(i+0.5)*(sqwidth/s),y*0-(j+0.75)*(sqwidth/s), "%d"%n)
+    can.restoreState()
 
 
 def prime_factors(num):
@@ -203,6 +350,7 @@ def prime_factor_str(n):
     fs = list(d.keys())
     fs.sort()
     s = ''
+    # TODO: superscript option
     for f in fs:
         for e in range(d[f]):
             s += '%sx'%f
@@ -212,21 +360,28 @@ def dot_grid_delta(i,x):
     if x==1: return 0
     # group composite number in sets of largest prime
     group = sorted(prime_factors(x).keys())[-1]
-    if group == 2: # odd number move right, even right
-        if x == 8: # ad = hoc
-            return {1:0,2:-2,3:-1,4:-3,5:1,6:-1,7:0,8:-2,9:2,10:1}.get(i,0)
-        else:
-            return -1 + 2*(i%2)
+    if group == 2:
+        ret = -1 + 2*(i%2)
+        if x >= 4:    ret +=  1*(i>4) - 1*(i<=4)
+        if x >= 8:    ret +=  1*(i>8) - 1*(i<=8)
+        return ret/2
     if group == 3:
         return {1:1,2:0,0:-1}[i%3]
     if group == 5:
         return {1:2,2:1,3:0,4:-1,0:-2}[i%5]
+    if group == 7:
+        ret = 2*(i>7) - 2*(i<=7)
+        if x>14:
+            ret = 2*(i>14) - 2*(i<=14)
+        return ret
     return 0
 
 def dot_grid(can,x=2,y=3,X=10,Y=10,w=40,h=40,col_cuts=0,row_cuts=0,box=0,factors=0):
-    # make at a large scale and then shrink for antialiasing?
-    dx = w/X
-    dy = h/Y
+    #  make as a large drawing, scale and place on canvas
+    W = 180; H = 180
+    draw = Drawing(W,H)
+    dx = W/X
+    dy = H/Y
     for j in range(1,Y+1):
         for i in range(1,X+1):
             if i<=x and j<=y:
@@ -235,52 +390,84 @@ def dot_grid(can,x=2,y=3,X=10,Y=10,w=40,h=40,col_cuts=0,row_cuts=0,box=0,factors
             else:
                 stroke_color =  colors.Color(21/255., 21/255., 21/255.,0.05)
                 fill_color =  colors.Color(21/255., 21/255., 21/255.,0.05)
-            ddx = dot_grid_delta(i,x)
-            ddy = dot_grid_delta(j,y)
-            can.setStrokeColor(stroke_color)
-            can.setFillColor(fill_color)
-            can.circle(i*dx-dx/2+ddx, -j*dy-ddy, (dx/2-1) or 1, stroke=0,fill=1)
+            ddx = dot_grid_delta(i,x)*2
+            ddy = dot_grid_delta(j,y)*2
+            draw.add(Circle(i*dx-dx/2+ddx, -j*dy-ddy, max((dx/2-1), 1), fillColor=fill_color,strokeColor=None))
             if x>i>1 and col_cuts and sorted(prime_factors(x).keys())[-1] in prime_factors(i):
-                can.setStrokeColor(colors.white)
-                can.line(i*dx+ddx+dx/4,-j*dy-dy/2-1,i*dx+ddx+dx/4,-j*dy+dy/2+1)
-                can.setStrokeColor(stroke_color)
-                can.line(i*dx+ddx+dx/4,-j*dy-dy/2-1,i*dx+ddx+dx/4,-j*dy+dy/2+1)
+                draw.add(Line(i*dx+ddx/2,-j*dy-dy/2-1,i*dx+ddx/2,-j*dy+dy/2+1, strokeColor=stroke_color))
             if y>j>1 and row_cuts and  sorted(prime_factors(y).keys())[-1] in  prime_factors(j).keys():
-                can.setStrokeColor(colors.white)
-                can.line(i*dx-dx,-j*dy-3*dy/4-ddy,i*dx,-j*dy-3*dy/4-ddy)
-                can.setStrokeColor(stroke_color)
-                can.line(i*dx-dx,-j*dy-3*dy/4-ddy,i*dx,-j*dy-3*dy/4-ddy)
-
+                draw.add(Line(i*dx-dx,-j*dy-dy/2-ddy,i*dx,-j*dy-dy/2-ddy, strokeColor=stroke_color))
             if x>1 and box and  i == sorted(prime_factors(x).keys())[-1] and  y>1 and  j == sorted(prime_factors(y).keys())[-1]:
                 fill_color =  colors.Color(21/255., 21/255., 21/255.,0.07)
-                can.setFillColor(fill_color)
-                can.rect(dx/6,-j*dy-dy/3,i*dx-dx/6,j*dy-dy/6,fill=1,stroke=0)
+                #can.setFillColor(fill_color)
+                #can.rect(dx/6,-j*dy-dy/3,i*dx-dx/6,j*dy-dy/6,fill=1,stroke=0)
+                draw.add(Rect(dx/12,-j*dy-dy/3,i*dx-dx/4,j*dy-dy/6-ddy, fillColor=fill_color,strokeColor=None))
+    draw.scale(w/W,h/H)
+    draw.wrapOn(can,w,h)
+    draw.drawOn(can,0,0)
 
     if factors:
         fill_color =  colors.Color(21/255., 21/255., 21/255.,.7)
         can.setFillColor(fill_color)
         can.setFont("Times-Roman", 8)
         s = prime_factor_str(x*y)
+        if len(s)==1: s= ''
         textWidth = stringWidth(s, fontName="Times-Roman", fontSize=8)
-        can.drawString(w-textWidth,-h-dy/2,s) # right
-
+        can.drawString(w-textWidth,-h,s) # right
 
 ################### tests and demos #####################
+def test_draw():
+    sheet = Sheet('draw',margin=0,verbose=0)
+    sheet.can.setFillColor('red')
+    sheet.can.circle(0,200, 100, stroke=1,fill=1)
+    d = Drawing(200, 200)
+    d.add(Circle(0, 0, 100, fillColor=colors.yellow))
+    d.add(String(150,100, 'Hello World', fontSize=18, fillColor=colors.red))
+    #d.scale(0.5,0.5)
+    d.wrapOn(sheet.can,200,200)
+    d.drawOn(sheet.can,0,600)
+    sheet.save()
 
 def test():
-    sheet = Sheet('times_table',verbose=0)
-    print("saving times_table to %s"%DOUT)
-    sheet = Sheet('times_table',verbose=9)
-    print("saving verbose times_table to %s"%DOUT)
-    sheet = Sheet('graph_paper')
-    print("saving graph_paper to %s"%DOUT)
+    sheet = Sheet('graph_paper',margin=0,verbose=0)
+    margin = 10
+    sheet.can.saveState()
+    sheet.can.translate(margin,margin)
+    sheet.graph_paper(lines=50,width=sheet.width-2*margin,height=sheet.height-2*margin)
+    sheet.graph_paper(lines=10,width=sheet.width-2*margin,height=sheet.height-2*margin)
+    sheet.graph_paper(lines=5,width=sheet.width-2*margin,height=sheet.height-2*margin)
+    sheet.can.restoreState()
+    sheet.save()
+    print("save gp")
+    sheet = Sheet('times_table_v9',margin=margin,verbose=9)
+    sheet.times_table()
+    sheet.save()
+    print("saved verbose 9 times_table to %s"%DOUT)
+    sheet = Sheet('times_table_v3',margin=margin,verbose=3)
+    sheet.times_table(size=12)
+    sheet.save()
+    print("saved verbose 3 times_table to %s"%DOUT)
+    sheet = Sheet('times_table_empty',margin=margin)
+    sheet.times_table(show_products=0.)
+    sheet.save()
+    print("saved empty times_table to %s"%DOUT)
+    sheet = Sheet('times_table',margin=margin)
+    sheet.times_table()
+    sheet.save()
+    print("saved verbose 0 times_table to %s"%DOUT)
+    sheet = Sheet('times_table_b12',margin=margin)
+    sheet.times_table(size=12,base=12)
+    sheet.save()
+    print("saved verbose 0 base 12 times_table to %s"%DOUT)
+
 
 if __name__ == "__main__":
     # todo: use argparse
     import platform
     DOUT = "/home/jameyer/Write/Math"
     psystem = platform.system()
-    print("%s system detected"%psystem)
+    #print("%s system detected"%psystem)
     if psystem == "Windows":
         DOUT = ''
     test()
+    #test_draw()
